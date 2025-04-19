@@ -5,6 +5,8 @@ const authController = require('../controller/authController')
 
 router.post('/register',authController.registerController)
 router.post('/verifyotp',authController.verifyOtp)
+router.post('/resendotp',authController.resendOTP)
+
 router.post('/login',authController.loginUser)
 
 
