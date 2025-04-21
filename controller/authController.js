@@ -151,7 +151,7 @@ exports.loginUser = async(req,res)=>{
 
         const existingUser = await users.findOne({email})
         if(!existingUser || !existingUser.verified){
-            res.status(400).json('User not found')
+            return res.status(400).json('User not found')
         }
 
         const decryptedpassword = await bcrypt.compare(password,existingUser.password)
@@ -166,7 +166,8 @@ exports.loginUser = async(req,res)=>{
             admin:existingUser.isAdmin
         },process.env.JWT_SECRETKEY)
 
-        res.status(200).json({message:'Login successful',token, userId:existingUser._id, isAdmin:existingUser.isAdmin})
+        res.status(200).json({message:'Login successful',token, userId:existingUser._id, isAdmin:existingUser.isAdmin,
+            userName: existingUser.userName})
         
     } catch (error) {
         res.status(500).json({message:'Failed to login'})
