@@ -29,6 +29,30 @@ exports.addToWishlist = async (req, res) => {
     }
 };
 
+// remove from wishlist
+
+// wishlistController.js
+exports.removeFromWishlist = async (req, res) => {
+    try {
+        const { productId } = req.params; // Now getting from params instead of body
+        const userId = req.user.id;
+
+        const user = await users.findByIdAndUpdate(
+            userId,
+            { $pull: { wishlist: productId } },
+            { new: true }
+        ).populate('wishlist');
+
+        res.status(200).json({ 
+            message: 'Product removed from wishlist',
+            wishlist: user.wishlist 
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
 
 // get wishlist products
 
