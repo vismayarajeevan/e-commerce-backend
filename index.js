@@ -19,6 +19,9 @@ app.use('/auth',auth)
 const product = require('./router/product')
 app.use('/api/',product)
 
+const wishlist = require('./router/wishlist')
+app.use('/api/wishlist/',wishlist)
+
 const PORT = process.env.PORT || 3000
 
 app.listen(PORT,()=>{
