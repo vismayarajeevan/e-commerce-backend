@@ -12,16 +12,22 @@ exports.addToWishlist = async (req, res) => {
             return res.status(404).json({ message: 'Product not found' });
         }
 
-        // Add to wishlist if not already there
-        const user = await users.findByIdAndUpdate(
+        // Check if product is already in wishlist
+        const user = await users.findById(userId);
+        if (user.wishlist.includes(productId)) {
+            return res.status(400).json({ message: 'Product already in wishlist' });
+        }
+
+        // Add to wishlist
+        const updatedUser = await users.findByIdAndUpdate(
             userId,
-            { $addToSet: { wishlist: productId } }, // $addToSet prevents duplicates
+            { $addToSet: { wishlist: productId } },
             { new: true }
         ).populate('wishlist');
 
         res.status(200).json({ 
             message: 'Product added to wishlist',
-            wishlist: user.wishlist 
+            wishlist: updatedUser.wishlist 
         });
     } catch (error) {
         console.error(error);
