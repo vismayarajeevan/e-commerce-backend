@@ -22,6 +22,9 @@ app.use('/api/',product)
 const wishlist = require('./router/wishlist')
 app.use('/api/wishlist/',wishlist)
 
+const cartRoutes = require('./router/cartRoutes');
+app.use('/api/cart', cartRoutes);
+
 const PORT = process.env.PORT || 3000
 
 app.listen(PORT,()=>{
