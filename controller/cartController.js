@@ -139,7 +139,7 @@ exports.emptyCart = async (req, res) => {
     }
 };
 
-// Move item to wishlist
+// Move item to wishlist  
 exports.moveToWishlist = async (req, res) => {
     try {
         const { productId } = req.params;
