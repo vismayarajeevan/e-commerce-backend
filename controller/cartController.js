@@ -1,5 +1,14 @@
+
+
 const users = require('../model/authModel');
 const products = require('../model/productModel');
+
+// Helper function to calculate cart total
+function calculateCartTotal(cartItems) {
+    return cartItems.reduce((total, item) => {
+        return total + (item.product.price * item.quantity);
+    }, 0);
+}
 
 // Add to cart
 exports.addToCart = async (req, res) => {
@@ -48,38 +57,36 @@ exports.addToCart = async (req, res) => {
     }
 };
 
-// Update cart item quantity
+// Update cart item quantity (general update)
 exports.updateCartItem = async (req, res) => {
     try {
         const { productId } = req.params;
-        const { action } = req.body; // 'increment' or 'decrement'
+        const { quantity } = req.body;
         const userId = req.user.id;
 
-        const user = await users.findById(userId);
-        const cartItem = user.cart.find(item => 
-            item.product.toString() === productId
-        );
+        if (!quantity || isNaN(quantity) || quantity < 1) {
+            return res.status(400).json({ message: 'Invalid quantity' });
+        }
 
-        if (!cartItem) {
+        const user = await users.findOneAndUpdate(
+            { 
+                _id: userId,
+                'cart.product': productId 
+            },
+            { 
+                $set: { 'cart.$.quantity': quantity } 
+            },
+            { new: true }
+        ).populate('cart.product');
+
+        if (!user) {
             return res.status(404).json({ message: 'Item not found in cart' });
         }
 
-        if (action === 'increment') {
-            cartItem.quantity += 1;
-        } else if (action === 'decrement') {
-            cartItem.quantity = Math.max(1, cartItem.quantity - 1);
-        } else {
-            return res.status(400).json({ message: 'Invalid action' });
-        }
-
-        await user.save();
-        
-        const populatedUser = await users.findById(userId).populate('cart.product');
-        
         res.status(200).json({ 
             message: 'Cart updated',
-            cart: populatedUser.cart,
-            total: calculateCartTotal(populatedUser.cart)
+            cart: user.cart,
+            total: calculateCartTotal(user.cart)
         });
     } catch (error) {
         console.error(error);
@@ -192,9 +199,110 @@ exports.getCart = async (req, res) => {
     }
 };
 
-// Helper function to calculate cart total
-function calculateCartTotal(cartItems) {
-    return cartItems.reduce((total, item) => {
-        return total + (item.product.price * item.quantity);
-    }, 0);
-}
+// Increment cart item quantity by 1
+exports.incrementCartItem = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const userId = req.user.id;
+
+        const user = await users.findOneAndUpdate(
+            { 
+                _id: userId,
+                'cart.product': productId 
+            },
+            { 
+                $inc: { 'cart.$.quantity': 1 } 
+            },
+            { new: true }
+        ).populate('cart.product');
+
+        if (!user) {
+            return res.status(404).json({ message: 'Item not found in cart' });
+        }
+
+        // Find the updated item
+        const updatedItem = user.cart.find(item => 
+            item.product._id.toString() === productId
+        );
+
+        res.status(200).json({ 
+            message: 'Item quantity increased',
+            product: {
+                _id: updatedItem.product._id,
+                name: updatedItem.product.name,
+                price: updatedItem.product.price,
+                quantity: updatedItem.quantity,
+                subtotal: updatedItem.product.price * updatedItem.quantity
+            },
+            total: calculateCartTotal(user.cart)
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Decrement cart item quantity by 1 (minimum 1)
+exports.decrementCartItem = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const userId = req.user.id;
+
+        // First find the item to check current quantity
+        const user = await users.findById(userId).populate('cart.product');
+        const cartItem = user.cart.find(item => 
+            item.product._id.toString() === productId
+        );
+
+        if (!cartItem) {
+            return res.status(404).json({ message: 'Item not found in cart' });
+        }
+
+        // Only decrement if quantity > 1
+        if (cartItem.quantity > 1) {
+            const updatedUser = await users.findOneAndUpdate(
+                { 
+                    _id: userId,
+                    'cart.product': productId,
+                    'cart.quantity': { $gt: 1 }
+                },
+                { 
+                    $inc: { 'cart.$.quantity': -1 } 
+                },
+                { new: true }
+            ).populate('cart.product');
+
+            const updatedItem = updatedUser.cart.find(item => 
+                item.product._id.toString() === productId
+            );
+
+            return res.status(200).json({ 
+                message: 'Item quantity decreased',
+                product: {
+                    _id: updatedItem.product._id,
+                    name: updatedItem.product.name,
+                    price: updatedItem.product.price,
+                    quantity: updatedItem.quantity,
+                    subtotal: updatedItem.product.price * updatedItem.quantity
+                },
+                total: calculateCartTotal(updatedUser.cart)
+            });
+        }
+
+        // If quantity is 1, return current product without changes
+        res.status(200).json({ 
+            message: 'Quantity cannot be less than 1',
+            product: {
+                _id: cartItem.product._id,
+                name: cartItem.product.name,
+                price: cartItem.product.price,
+                quantity: cartItem.quantity,
+                subtotal: cartItem.product.price * cartItem.quantity
+            },
+            total: calculateCartTotal(user.cart)
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
