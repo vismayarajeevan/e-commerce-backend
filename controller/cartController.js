@@ -117,7 +117,7 @@ exports.removeFromCart = async (req, res) => {
     }
 };
 
-// Empty cart
+// Empty cart  
 exports.emptyCart = async (req, res) => {
     try {
         const userId = req.user.id;
