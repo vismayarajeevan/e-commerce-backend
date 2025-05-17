@@ -94,7 +94,7 @@ exports.updateCartItem = async (req, res) => {
     }
 };
 
-// Remove from cart
+// Remove from cart  
 exports.removeFromCart = async (req, res) => {
     try {
         const { productId } = req.params;
