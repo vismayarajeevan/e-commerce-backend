@@ -242,13 +242,15 @@ exports.incrementCartItem = async (req, res) => {
     }
 };
 
-// Decrement cart item quantity by 1 (minimum 1)
+
+
+// Decrement cart item quantity by 1 (remove if quantity would become 0)
 exports.decrementCartItem = async (req, res) => {
     try {
         const { productId } = req.params;
         const userId = req.user.id;
 
-        // First find the item to check current quantity
+        // First find the user to check current quantity
         const user = await users.findById(userId).populate('cart.product');
         const cartItem = user.cart.find(item => 
             item.product._id.toString() === productId
@@ -258,48 +260,46 @@ exports.decrementCartItem = async (req, res) => {
             return res.status(404).json({ message: 'Item not found in cart' });
         }
 
-        // Only decrement if quantity > 1
-        if (cartItem.quantity > 1) {
-            const updatedUser = await users.findOneAndUpdate(
-                { 
-                    _id: userId,
-                    'cart.product': productId,
-                    'cart.quantity': { $gt: 1 }
-                },
-                { 
-                    $inc: { 'cart.$.quantity': -1 } 
-                },
+        // If quantity is 1, remove from cart
+        if (cartItem.quantity === 1) {
+            const updatedUser = await users.findByIdAndUpdate(
+                userId,
+                { $pull: { cart: { product: productId } } },
                 { new: true }
             ).populate('cart.product');
 
-            const updatedItem = updatedUser.cart.find(item => 
-                item.product._id.toString() === productId
-            );
-
             return res.status(200).json({ 
-                message: 'Item quantity decreased',
-                product: {
-                    _id: updatedItem.product._id,
-                    name: updatedItem.product.name,
-                    price: updatedItem.product.price,
-                    quantity: updatedItem.quantity,
-                    subtotal: updatedItem.product.price * updatedItem.quantity
-                },
+                message: 'Item removed from cart',
+                removed: true,
+                cart: updatedUser.cart,
                 total: calculateCartTotal(updatedUser.cart)
             });
         }
 
-        // If quantity is 1, return current product without changes
-        res.status(200).json({ 
-            message: 'Quantity cannot be less than 1',
-            product: {
-                _id: cartItem.product._id,
-                name: cartItem.product.name,
-                price: cartItem.product.price,
-                quantity: cartItem.quantity,
-                subtotal: cartItem.product.price * cartItem.quantity
+        // Decrement quantity by 1
+        const updatedUser = await users.findOneAndUpdate(
+            { 
+                _id: userId,
+                'cart.product': productId
             },
-            total: calculateCartTotal(user.cart)
+            { 
+                $inc: { 'cart.$.quantity': -1 } 
+            },
+            { new: true }
+        ).populate('cart.product');
+
+        const updatedItem = updatedUser.cart.find(item => 
+            item.product._id.toString() === productId
+        );
+
+        res.status(200).json({ 
+            message: 'Item quantity decreased',
+            product: {
+                _id: updatedItem.product._id,
+                quantity: updatedItem.quantity
+            },
+            cart: updatedUser.cart,
+            total: calculateCartTotal(updatedUser.cart)
         });
     } catch (error) {
         console.error(error);
